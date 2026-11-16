@@ -1,0 +1,157 @@
+
+
+Assessment: Database Management and SQL Optimization
+Introduction: This assessment evaluates your knowledge in database migration, SQL tuning, and PL/SQL scripting. Please provide detailed answers to each question, outlining your approach and reasoning behind each step.
+
+1. Kindly devise a migration plan for moving a 10TB large operational database to a new database. Kindly list down your steps with respective reasoning. 
+
+Answer: 
+To me, a normal backup and restore takes too long for 10TB, and the business can’t be down for days just for a backup and restore. So I would plan for very small downtime, using replication to keep the new database in sync until the switch following the below steps.
+
+Step 1: 
+Plan early and finalize the plan at least two weeks before the migration. A migration this big is not only a technical job, it involves many teams. I would prepare an hour-by-hour (H2H) plan showing who does what and when, from the start of the migration until the system is back live. I would meet or sync with the DB, OS, DevOps, and other respective teams to agree on the backups, server snapshots, and the downtime window. I would also inform the owners of all products and applications that could be affected, so they know the exact downtime and can tell their own users. At the same time, I would prepare the test cases, QA checklist, and SOPs for every step, including the rollback steps. Having everything finalized two weeks ahead gives all teams enough time to review the plan, raise concerns, and run the rehearsal, so on migration day everyone follows the same document and nobody has to guess.
+
+Step 2: 
+Understand the current database. I would check the size of each schema, how fast the data grows, peak load, database links, scheduled jobs, character set, and any datatypes that may not migrate easily. Most migration problems come from things nobody knew were there.
+
+Step 3:
+ Choose the right method. If the source and target are the same platform and version, I would use Data Guard and do a switchover, because it’s the simplest and safest. If the platform is different, I would use transportable tablespaces with incremental backups. If the database type or version is very different, I would use GoldenGate, AWS DMS, Azure Database Migration Service, or whatever tool the company already uses. The choice depends on the situation, not one tool for everything.
+
+Step 4:
+ Prepare the target and the network. Moving 10TB over a slow network can take days, so I would check bandwidth early and make sure the target storage and memory are sized for the real load, not just the data size. Especially if storage and memory are tight, I would ask for extra storage and memory early so we don't hit any issues during the migration.
+
+Step 5:
+ Take a full backup and snapshots before starting. Following what was agreed with the DB, OS, and DevOps teams, I would make sure a full backup and server snapshots are completed and verified before any migration work begins. If anything goes badly wrong, this is our safe point to go back to. (Note: Usually the DBA does the database backup.)
+
+Step 6:
+ Start capturing changes before the bulk load. This is important. I would turn on supplemental logging and start change capture at a known system change number or SCN, then export the data as of that same SCN. This way, no transaction gets lost or applied twice while the load is running.
+
+Step 7:
+ Create the tables and primary keys on the target, then load the data in parallel. I would keep secondary indexes, foreign keys, and triggers off during the load, because they slow it down a lot. Primary keys must be there, though, because replication needs them to find rows for updates and deletes.
+
+Step 8:
+ Apply the captured changes until the target catches up. Triggers and foreign keys stay disabled on the target during this time, otherwise triggers fire twice.
+Step 9:
+ Build the remaining indexes in parallel and enable the constraints. I would enable constraints with NOVALIDATE first, then validate them later. I would be careful with NOLOGGING, because it affects standby databases and recovery, so a backup is needed right after.
+
+Step 10:
+ Check the data using the prepared test cases. Row counts, checksums on important tables, and running real workload tests on the new database. Also check the audit logs. The QA team runs through their checklist here. I would also gather optimizer statistics so queries don’t run with bad plans on day one.
+
+Step 11:
+ Do a full rehearsal at least once. Using the H2H plan and SOPs, we run the whole migration in a test environment. This tells us how long the real cutover will take and shows any gaps in the plan, so we can fix the H2H timings before the real day.
+
+Step 12:
+ Final go/no-go meeting. A day or a few hours before the cutover, I would hold a final meeting with all the teams involved: DB, OS, DevOps, QA, and the product and application owners. Together we check that: A- The backups and snapshots are done and verified. B- Replication is running with little or no lag. C- The rehearsal went well and the H2H timings are realistic. D- The test cases and QA checklist are ready. E- The rollback SOP is clear and everyone knows their role in it. F- All affected users and app owners have been informed of the downtime. Each team then gives a clear go or no-go. If any team says no-go, we don’t start; we fix the issue or move to a new date. I’d also agree in this meeting on the rollback decision point: the latest time in the H2H plan where, if things are not working, we stop and go back to the old database instead of pushing forward.
+
+Step 13:
+ Cutover, following the H2H plan. We stop the application, let the last changes apply, advance target sequences above the source max values (with a safety buffer), point the application to the new database, and run smoke tests. The product and application owners test their own apps and confirm everything works before we announce the system is live.
+Step 14: Keep a way back. I would keep reverse replication running for a few days, along with the backups and snapshots from Step 5, so we can go back to the old database if something serious comes up. After the system is stable, I would send a final update to all teams and close the migration.
+
+
+
+2. Kindly devise a SQL tuning strategy to reduce a 9 figure cost plan for a SQL statement. Kindly list down your steps with respective reasoning. 
+
+Answer: 
+
+First, I’d remember that cost is only the optimizer’s estimate. A high cost doesn’t always mean the query is slow, so I’d look at the real runtime numbers, not only the cost.
+
+Step 1:
+ Find the query and its actual plan. I’d get the SQL_ID from AWR (Automatic Workload Repository) or ASH (Active Session History), then use DBMS_XPLAN.DISPLAY_CURSOR with ALLSTATS LAST, or SQL Monitor if it runs long. Explain plan alone is only a guess.
+
+Step 2:
+ Compare estimated rows with actual rows. Where they are very different, that’s where the optimizer went wrong. Most bad plans start from a wrong row estimate.
+
+Step 3: 
+Check statistics. Stale stats, missing histograms on skewed columns, or correlated columns (like city and postcode) all give wrong estimates. I’d fix the stats and add extended stats where needed.
+
+Step 4: 
+Look for common mistakes in the SQL itself: A- A missing join condition, which shows up as MERGE JOIN CARTESIAN in the plan. B- Functions on indexed columns, like TRUNC(order_date). I’d rewrite it as order_date >= TRUNC(SYSDATE) AND order_date < TRUNC(SYSDATE) + 1. C- Comparing a VARCHAR column with a number, which causes hidden conversion and skips the index. D- Scalar subqueries in the SELECT list that run once for every row.
+
+Step 5:
+ Check the indexes. Sometimes a composite index with the right column order removes most of the work. If the query only needs a few columns, an index that covers all of them avoids going to the table at all.
+
+Step 6:
+ For big partitioned tables, make sure the WHERE clause uses the partition key, so Oracle only reads the partitions it needs. If a big scan really can’t be avoided, use parallel query in a controlled way.
+
+Step 7:
+ Check if the table has wasted space or old data. If many rows were deleted, a full scan still reads all the empty blocks up to the high water mark. I’d reclaim the space with SHRINK SPACE or MOVE and rebuild the indexes. For old data like audit logs or history, I’d archive or purge it, or move it to separate partitions, so the query only reads data that is really needed.
+
+Step 8:
+ Lock in the good plan with a SQL Plan Baseline or SQL Profile, so it doesn’t change back later.
+
+Step 9: 
+Measure the result by buffer gets and elapsed time, not by cost. And confirm the new query returns exactly the same results as the old one. I’d also ask the business if they really need all that data. Sometimes the best tuning is to not read rows nobody uses.
+
+
+3. When would you use Cursor in PL/SQL? 
+
+Answer: 
+Actually, every SQL statement in PL/SQL uses a cursor, either implicit or explicit. But I would write an explicit cursor only when I really need it, because a single SQL statement is almost always faster than a loop. I would use one when:
+A- Each row needs logic that can’t be done in SQL, like calling another package or handling errors per row.
+B- I’m processing millions of rows. I’d use BULK COLLECT with LIMIT to fetch in batches, so memory doesn’t blow up.
+C- I need to return a result set to an application, like Java or .NET. I’d use a REF CURSOR for that. This is probably the most common use in real systems. D- Many sessions are picking jobs from a queue. FOR UPDATE SKIP LOCKED lets each session take its own rows without blocking the others.
+
+4. When would you use a partition table? 
+
+Answer:
+ I’d use partitioning when a table is big and the queries or maintenance follow a clear pattern:
+A- Most queries filter by date or another key, so Oracle can skip the partitions it doesn’t need.
+B- Old data has to be purged regularly. Dropping or truncating a partition is much faster than deleting millions of rows. If there are global indexes, I’d use UPDATE INDEXES, or they become unusable.
+C- Bulk loads, where I can load into a separate table and use partition exchange.
+D- Old data can be compressed or moved to cheaper storage while recent data stays on fast disks.
+E- Many sessions insert at the same time and fight over the same index block. A hash-partitioned index helps spread that out. I would not partition if most queries don’t use the partition key, because then Oracle has to check every partition and it can get slower. Also, partitioning is a paid option on Oracle Enterprise Edition, so licensing has to be checked first.
+
+5. When would you normalise a transactional table? 
+
+Answer:
+For OLTP systems, normalizing (usually up to 3NF) is my default. I’d normalize when:
+A- The same data is repeated in many rows, like a customer name in every order. One change then means updating thousands of rows.
+B- Deleting one record removes information we still need, like losing product details when the last order is deleted.
+C- The same value is stored in different ways, like “MYS” and “Malaysia”, or “sg” and “Singapore”. A lookup table with a foreign key fixes this.
+D- There are repeating columns like phone1, phone2, and phone3, which should be a separate table. But some values should be copied on purpose. The price on an order line should be the price at the time of sale, not the current product price. The same goes for the delivery address on an invoice. That is recording history, not bad design. For reporting or read-heavy systems, I would sometimes denormalize on purpose, for example with materialized views.
+
+6. Kindly share us a very bad example of PL/SQL scripting and how you would optimise it? 
+
+Answer:
+BadCREATE OR REPLACE PROCEDURE process_bonuses IS v_rate NUMBER; BEGIN FOR r IN (SELECT emp_id, salary, dept_id FROM employees WHERE status = 'ACTIVE') LOOP SELECT bonus_pct INTO v_rate FROM department_rules WHERE dept_id = r.dept_id; UPDATE employees SET bonus_amount = r.salary * v_rate WHERE emp_id = r.emp_id; COMMIT; END LOOP; END; version:
+
+What’s wrong with it:
+A- It runs one SELECT and one UPDATE for every employee. With 500,000 employees, that’s about a million SQL calls and a lot of switching between PL/SQL and SQL.
+B- It commits inside the loop. This slows things down, can cause ORA-01555, and if it fails halfway, half the employees get a bonus and half don’t.
+C- If a department has no rule, the SELECT INTO fails with NO_DATA_FOUND and the whole job stops.
+
+Better version, one SQL statement:
+
+CREATE OR REPLACE PROCEDURE process_bonuses IS
+BEGIN
+    UPDATE employees e
+       SET e.bonus_amount = e.salary * (
+               SELECT d.bonus_pct
+                 FROM department_rules d
+                WHERE d.dept_id = e.dept_id
+           )
+     WHERE e.status = 'ACTIVE'
+       AND EXISTS (
+               SELECT 1
+                 FROM department_rules d
+                WHERE d.dept_id = e.dept_id
+           );
+END;
+
+One statement does all the work, and the commit is left to the caller, so the whole job either finishes or rolls back completely. One thing to note: employees in departments without a rule are now skipped instead of causing an error, so I’d confirm that’s what the business wants. If there’s logic that really needs PL/SQL, I’d use BULK COLLECT with LIMIT 1000 and FORALL with SAVE EXCEPTIONS, so one bad row doesn’t stop the whole batch, and I can log which rows failed.
+
+
+
+7. Kindly share us how you would define an efficient PL/SQL script?
+
+Answer:
+For me, an efficient script is not just fast. It is also safe to run, easy to support, and easy to rerun if it fails. What I look for:
+A- Use plain SQL wherever possible. If a loop is needed, use BULK COLLECT with LIMIT and FORALL.
+B- Commit at the right place, usually by the caller or at the end of a business transaction. Never inside a loop.
+C- Declare variables with %TYPE and %ROWTYPE, so the code doesn’t break when a column size changes.
+D- In dynamic SQL, use EXECUTE IMMEDIATE with USING for bind variables, never string concatenation. This avoids SQL injection and too much hard parsing.
+E- Never use WHEN OTHERS THEN NULL. Log the error with DBMS_UTILITY.FORMAT_ERROR_BACKTRACE, then raise it again so the failure is visible.
+F- Use DBMS_APPLICATION_INFO so the DBA can see what the job is doing while it runs.
+G- Put code in packages, not loose procedures. H- Batch jobs should be safe to rerun after a failure without creating duplicate data.
+I- Test it with real data volumes, not just 10 rows in dev.
+
