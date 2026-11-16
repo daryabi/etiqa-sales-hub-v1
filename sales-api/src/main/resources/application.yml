@@ -1,0 +1,101 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: etiqa-sales-hub-api
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/etiqa_sales_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USER:etiqa_sales_user}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  sql:
+    # No Flyway yet. Five tables don't need migration history; switch once the schema starts changing.
+    init:
+      mode: always
+      schema-locations:
+        - classpath:db/customers.sql
+        - classpath:db/products.sql
+        - classpath:db/sales.sql
+        - classpath:db/audit_logs.sql
+        - classpath:db/users.sql
+      data-locations:
+        - classpath:db/seed_users.sql
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
+      password: ${REDIS_PASSWORD:}
+    web:
+      pageable:
+        default-page-size: 10
+        max-page-size: 100
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: etiqa-sales-inventory-group
+      auto-offset-reset: earliest
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+logging:
+  structured:
+    format:
+      console: ecs
+      file: ecs
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+app:
+  timezone: Asia/Kuala_Lumpur
+  low-stock-threshold: 10
+  max-report-days: 366
+  cors-allowed-origins:
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+    - http://localhost:5174
+    - http://127.0.0.1:5174
+  error-type-base-uri: https://api.etiqa-sales-hub.local/errors/
+  topics:
+    sales: sales.recorded.v1
+    stock: inventory.stock-changed.v1
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      expiration-ms: 86400000
+    metrics:
+      username: ${METRICS_USERNAME:prometheus}
+      password: ${METRICS_PASSWORD:}
+  book-lookup:
+    base-url: https://openlibrary.org
+    connect-timeout: 3s
+    read-timeout: 5s

@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: ${MSSQL_URL:jdbc:sqlserver://localhost:1433;databaseName=TESTDB;encrypt=true;trustServerCertificate=true}
+    username: ${MSSQL_USER:sa}
+    password: ${MSSQL_PASSWORD:}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        type:
+          preferred_instant_jdbc_type: TIMESTAMP
+  sql:
+    init:
+      schema-locations:
+        - classpath:db/mssql/customers.sql
+        - classpath:db/mssql/products.sql
+        - classpath:db/mssql/sales.sql
+        - classpath:db/mssql/audit_logs.sql
+        - classpath:db/mssql/users.sql
+      data-locations:
+        - classpath:db/mssql/seed_users.sql

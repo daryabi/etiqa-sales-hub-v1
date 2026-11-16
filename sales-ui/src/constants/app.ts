@@ -1,0 +1,8 @@
+export const APP_CONFIG = {
+  PAGE_SIZE: 10,
+  SEARCH_DEBOUNCE_MS: 300,
+  TOAST_DURATION_MS: 4000,
+  APP_LOCALE: 'en-MY',
+  CURRENCY_CODE: 'MYR',
+  DEFAULT_BUSINESS_TIMEZONE: 'Asia/Kuala_Lumpur',
+} as const;

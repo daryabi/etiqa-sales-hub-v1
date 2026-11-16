@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #FFC72C;
+  --color-brand-hover: #E5B01F;
+  --color-brand-tint: #FFF8E1;
+  --color-ink: #1E1E1E;
+  --color-canvas: #F7F7F5;
+  --color-muted: #6B7280;
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    @apply antialiased selection:bg-brand selection:text-ink;
+  }
+}

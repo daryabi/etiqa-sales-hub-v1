@@ -1,0 +1,5 @@
+bookTitle|bookPrice|bookStockQuantity
+Clean Architecture|39.99|50
+Effective Java|45.50|30
+Designing Data-Intensive Applications|54.00|20
+Domain-Driven Design|49.95|15

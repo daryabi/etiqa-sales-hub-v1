@@ -1,0 +1,28 @@
+package com.etiqa.sales.common.web;
+
+import org.springframework.data.domain.Page;
+
+import java.util.List;
+import java.util.function.Function;
+
+public record PageResponse<T>(
+        List<T> content,
+        int page,
+        int size,
+        long totalElements,
+        int totalPages
+) {
+    public static <E, T> PageResponse<T> from(Page<E> page, Function<E, T> mapper) {
+        return from(page, page.getContent().stream().map(mapper).toList());
+    }
+
+    public static <E, T> PageResponse<T> from(Page<E> page, List<T> mappedContent) {
+        return new PageResponse<>(
+                List.copyOf(mappedContent),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
+    }
+}

@@ -1,0 +1,30 @@
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      templates:
+        - condition:
+            equals:
+              docker.container.name: etiqa-sales-api
+          config:
+            - type: filestream
+              id: etiqa-sales-api-${data.docker.container.id}
+              prospector.scanner.symlinks: true
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+              parsers:
+                - container: ~
+                - ndjson:
+                    target: ""
+                    overwrite_keys: true
+                    expand_keys: true
+                    ignore_decoding_error: true
+
+processors:
+  - add_docker_metadata: ~
+
+output.elasticsearch:
+  hosts:
+    - http://elasticsearch:9200
+
+setup.kibana:
+  host: http://kibana:5601
